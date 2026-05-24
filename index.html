@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kyros – Medical Conversation Recorder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f0f4f8;
+            min-height: 100vh;
+            padding: 30px 20px;
+            color: #1a202c;
+        }
+
+        .container {
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .header .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .header .logo-icon {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+        .header h1 {
+            font-size: 26px; font-weight: 700;
+            color: #1e3a5f;
+        }
+        .header p {
+            color: #64748b; font-size: 14px; margin-top: 4px;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+            margin-bottom: 20px;
+        }
+
+        /* Notice */
+        .notice {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 13px;
+            color: #1e40af;
+            margin-bottom: 28px;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .notice span { font-size: 18px; }
+
+        /* Status Badge */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #f1f5f9;
+            color: #64748b;
+            transition: all 0.3s;
+        }
+        .status-badge.recording {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        .status-badge.paused {
+            background: #fffbeb;
+            color: #d97706;
+        }
+        .status-badge.processing {
+            background: #eff6ff;
+            color: #2563eb;
+        }
+        .status-badge.completed {
+            background: #f0fdf4;
+            color: #16a34a;
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .dot.pulse { animation: pulse 1.2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        .timer {
+            font-size: 28px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            color: #1e3a5f;
+            letter-spacing: 2px;
+        }
+
+        /* Waveform */
+        .waveform-container {
+            background: #f8fafc;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 80px;
+            gap: 3px;
+            overflow: hidden;
+        }
+        .wave-bar {
+            width: 4px;
+            border-radius: 4px;
+            background: #cbd5e1;
+            transition: height 0.1s ease;
+        }
+        .wave-bar.active { background: linear-gradient(to top, #3b82f6, #60a5fa); }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+        .btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+        .btn:active:not(:disabled) { transform: translateY(0); }
+
+        .btn-start  { background: linear-gradient(135deg, #22c55e, #16a34a); color: white; }
+        .btn-pause  { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .btn-stop   { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-new    { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
+
+        .btn-icon { font-size: 18px; }
+
+        /* Audio Player */
+        .audio-player {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 28px;
+            display: none;
+        }
+        .audio-player.visible { display: block; }
+        .audio-player-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+        }
+        .audio-player audio {
+            width: 100%;
+            height: 40px;
+            border-radius: 8px;
+            outline: none;
+        }
+        audio::-webkit-media-controls-panel { background: #eff6ff; }
+
+        /* Results */
+        .result-section { display: none; }
+        .result-section.visible { display: block; }
+
+        .result-block {
+            margin-bottom: 20px;
+        }
+        .result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .result-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .copy-btn {
+            background: none;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #64748b;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Inter', sans-serif;
+        }
+        .copy-btn:hover { background: #f1f5f9; border-color: #cbd5e1; color: #1e293b; }
+        .copy-btn.copied { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+
+        /* Translate */
+        .translate-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .translate-select {
+            padding: 7px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: 'Inter', sans-serif;
+            color: #334155;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+        .btn-translate {
+            padding: 7px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #0ea5e9, #0284c7);
+            color: white;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+        .btn-translate:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-translate:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .translated-box {
+            margin-top: 10px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-left: 4px solid #10b981;
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #134e4a;
+            white-space: pre-wrap;
+            display: none;
+        }
+
+        .result-content {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            font-size: 15px;
+            line-height: 1.8;
+            color: #334155;
+            white-space: pre-wrap;
+            min-height: 70px;
+        }
+        .result-content.transcript { border-left: 4px solid #3b82f6; }
+        .result-content.summary    { border-left: 4px solid #10b981; white-space: pre-wrap; }
+
+        /* Skeleton loader */
+        .skeleton {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 8px;
+            height: 18px;
+            margin-bottom: 10px;
+        }
+        .skeleton:last-child { width: 60%; margin-bottom: 0; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+        /* Language tag */
+        .lang-tag {
+            display: inline-block;
+            background: #ede9fe;
+            color: #7c3aed;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 999px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Action bar */
+        .action-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .btn-action {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 9px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn-dl-audio   { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white; }
+        .btn-dl-txt     { background: linear-gradient(135deg, #0ea5e9, #0284c7); color: white; }
+        .btn-share-wa   { background: linear-gradient(135deg, #25d366, #128c7e); color: white; }
+        .btn-share-email{ background: linear-gradient(135deg, #f59e0b, #d97706); color: white; }
+        .btn-share-native{ background: linear-gradient(135deg, #64748b, #475569); color: white; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">
+            <div class="logo-icon">🩺</div>
+            <h1>Kyros</h1>
+        </div>
+        <p>Medical Conversation Recorder &nbsp;·&nbsp; English &amp; Tamil</p>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card">
+
+        <!-- Notice -->
+        <div class="notice">
+            <span>💡</span>
+            <div>Place your device between the doctor and patient. Supports <strong>English</strong>, <strong>Tamil</strong>, and <strong>mixed</strong> — transcription appears live as you speak.</div>
+        </div>
+
+        <!-- Status + Timer -->
+        <div class="status-bar">
+            <div class="status-badge" id="statusBadge">
+                <div class="dot" id="statusDot"></div>
+                <span id="statusText">Ready to record</span>
+            </div>
+            <div class="timer" id="timer">00:00</div>
+        </div>
+
+        <!-- Waveform -->
+        <div class="waveform-container" id="waveform"></div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button class="btn btn-start" id="startBtn" onclick="startRecording()">
+                <span class="btn-icon">⏺</span> Start
+            </button>
+            <button class="btn btn-pause" id="pauseBtn" onclick="pauseRecording()" disabled>
+                <span class="btn-icon">⏸</span> <span id="pauseLabel">Pause</span>
+            </button>
+            <button class="btn btn-stop" id="stopBtn" onclick="stopRecording()" disabled>
+                <span class="btn-icon">⏹</span> Stop
+            </button>
+        </div>
+
+        <!-- Audio Playback -->
+        <div class="audio-player" id="audioPlayer">
+            <div class="audio-player-label">🎧 Recorded Audio</div>
+            <audio id="audioPlayback" controls></audio>
+        </div>
+
+        <!-- Results -->
+        <div class="result-section" id="resultSection">
+
+            <div class="result-block">
+                <div class="result-header">
+                    <div class="result-title">
+                        📝 Transcript
+                        <span class="lang-tag" id="langTag"></span>
+                    </div>
+                    <button class="copy-btn" onclick="copyText('transcript', this)">Copy</button>
+                </div>
+                <div class="result-content transcript" id="transcript">
+                    <div class="skeleton"></div>
+                    <div class="skeleton"></div>
+                    <div class="skeleton"></div>
+                </div>
+                <div class="translate-bar">
+                    <span style="font-size:13px;color:#64748b;font-weight:500;">🌐 Translate to:</span>
+                    <select class="translate-select" id="targetLang">
+                        <option value="English">English</option>
+                        <option value="Tamil">Tamil</option>
+                        <option value="Hindi">Hindi</option>
+                        <option value="French">French</option>
+                        <option value="German">German</option>
+                        <option value="Arabic">Arabic</option>
+                    </select>
+                    <button class="btn-translate" id="translateBtn" onclick="translateTranscript()" disabled>Translate</button>
+                    <button class="copy-btn" id="copyTranslatedBtn" onclick="copyText('translatedBox', this)" style="display:none;">Copy</button>
+                </div>
+                <div class="translated-box" id="translatedBox"></div>
+            </div>
+
+            <div class="result-block">
+                <div class="result-header">
+                    <div class="result-title">🩺 Medical Summary</div>
+                    <button class="copy-btn" onclick="copyText('summary', this)">Copy</button>
+                </div>
+                <div class="result-content summary" id="summary">
+                    <div class="skeleton"></div>
+                    <div class="skeleton"></div>
+                </div>
+            </div>
+
+            <div style="text-align:center; margin-top: 8px;">
+                <button class="btn btn-new" onclick="newRecording()">
+                    <span class="btn-icon">＋</span> New Recording
+                </button>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="action-bar" id="actionBar" style="display:none;">
+                <button class="btn-action btn-dl-audio" onclick="downloadAudio()">⬇ Download Audio</button>
+                <button class="btn-action btn-dl-txt" onclick="downloadText()">⬇ Download Transcript</button>
+                <button class="btn-action btn-share-wa" onclick="shareWhatsApp()">💬 WhatsApp</button>
+                <button class="btn-action btn-share-email" onclick="shareEmail()">✉ Email</button>
+                <button class="btn-action btn-share-native" id="shareNativeBtn" onclick="shareNative()" style="display:none;">↗ Share</button>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let mediaRecorder, allChunks = [], chunkBuffer = [];
+    let startTime, timerInterval, waveInterval, audioBlob;
+    let analyser, dataArray, audioCtx, source;
+    let liveTranscript = '';       // accumulated real-time text
+    let isTranscribing = false;    // prevent overlapping chunk requests
+    let chunkInterval;             // fires every CHUNK_MS to send a chunk
+    const CHUNK_MS = 4000;         // send a chunk every 4 seconds
+
+    // Build waveform bars
+    const waveform = document.getElementById('waveform');
+    const BAR_COUNT = 48;
+    for (let i = 0; i < BAR_COUNT; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'wave-bar';
+        bar.style.height = '6px';
+        waveform.appendChild(bar);
+    }
+    const bars = waveform.querySelectorAll('.wave-bar');
+
+    function setStatus(text, type) {
+        const badge = document.getElementById('statusBadge');
+        const dot   = document.getElementById('statusDot');
+        document.getElementById('statusText').textContent = text;
+        badge.className = 'status-badge ' + (type || '');
+        dot.className   = 'dot' + (type === 'recording' ? ' pulse' : '');
+    }
+
+    function updateTimer() {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const secs = String(elapsed % 60).padStart(2, '0');
+        document.getElementById('timer').textContent = `${mins}:${secs}`;
+    }
+
+    function animateWave(active) {
+        clearInterval(waveInterval);
+        if (!active) {
+            bars.forEach(b => { b.style.height = '6px'; b.classList.remove('active'); });
+            return;
+        }
+        waveInterval = setInterval(() => {
+            if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                bars.forEach((bar, i) => {
+                    const idx = Math.floor(i * dataArray.length / BAR_COUNT);
+                    const val = dataArray[idx] / 255;
+                    bar.style.height = Math.max(6, val * 60) + 'px';
+                    bar.classList.toggle('active', val > 0.05);
+                });
+            } else {
+                bars.forEach(bar => {
+                    bar.style.height = Math.max(6, Math.random() * 50) + 'px';
+                    bar.classList.add('active');
+                });
+            }
+        }, 80);
+    }
+
+    // Send buffered audio chunks to /transcribe_chunk
+    async function flushChunk() {
+        if (chunkBuffer.length === 0 || isTranscribing) return;
+        const blob = new Blob(chunkBuffer.splice(0), { type: 'audio/webm' });
+        if (blob.size < 500) return;
+
+        isTranscribing = true;
+        const fd = new FormData();
+        fd.append('audio', blob);
+        fd.append('prev_text', liveTranscript.slice(-300));
+
+        try {
+            const res  = await fetch('http://localhost:5000/transcribe_chunk', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.text) {
+                liveTranscript += (liveTranscript ? ' ' : '') + data.text;
+                const box = document.getElementById('transcript');
+                box.textContent = liveTranscript;
+                box.scrollTop   = box.scrollHeight;
+                if (data.language) {
+                    const langMap = { ta: 'Tamil', en: 'English' };
+                    document.getElementById('langTag').textContent =
+                        langMap[data.language] || data.language.toUpperCase();
+                }
+            }
+        } catch(e) { console.warn('Chunk error', e); }
+        finally { isTranscribing = false; }
+    }
+
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, sampleRate: 16000 }
+            });
+
+            try {
+                audioCtx  = new AudioContext();
+                analyser  = audioCtx.createAnalyser();
+                analyser.fftSize = 128;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                source    = audioCtx.createMediaStreamSource(stream);
+                source.connect(analyser);
+            } catch(e) { analyser = null; }
+
+            allChunks   = [];
+            chunkBuffer = [];
+            liveTranscript = '';
+
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus', audioBitsPerSecond: 64000 });
+            mediaRecorder.ondataavailable = e => {
+                if (e.data && e.data.size > 0) {
+                    allChunks.push(e.data);    // keep full recording
+                    chunkBuffer.push(e.data);  // buffer for real-time chunk
+                }
+            };
+            mediaRecorder.onstop = finalizeRecording;
+            mediaRecorder.start(500);  // get data every 500ms
+
+            // Flush a chunk every CHUNK_MS
+            chunkInterval = setInterval(flushChunk, CHUNK_MS);
+
+            startTime     = Date.now();
+            timerInterval = setInterval(updateTimer, 1000);
+            animateWave(true);
+
+            // Show live transcript box immediately
+            document.getElementById('resultSection').classList.add('visible');
+            document.getElementById('transcript').textContent = '';
+            document.getElementById('summary').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+            document.getElementById('langTag').textContent = '';
+            document.getElementById('audioPlayer').classList.remove('visible');
+
+            setStatus('Recording...', 'recording');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('stopBtn').disabled  = false;
+        } catch (e) {
+            alert('Microphone access denied. Please allow microphone access and try again.');
+        }
+    }
+
+    function pauseRecording() {
+        if (mediaRecorder.state === 'recording') {
+            mediaRecorder.pause();
+            clearInterval(timerInterval);
+            clearInterval(chunkInterval);
+            animateWave(false);
+            setStatus('Paused', 'paused');
+            document.getElementById('pauseLabel').textContent = 'Resume';
+        } else {
+            mediaRecorder.resume();
+            timerInterval = setInterval(updateTimer, 1000);
+            chunkInterval = setInterval(flushChunk, CHUNK_MS);
+            animateWave(true);
+            setStatus('Recording...', 'recording');
+            document.getElementById('pauseLabel').textContent = 'Pause';
+        }
+    }
+
+    function stopRecording() {
+        if (Math.floor((Date.now() - startTime) / 1000) < 2) {
+            alert('Recording too short! Please record for at least 3 seconds.');
+            return;
+        }
+        clearInterval(chunkInterval);
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        clearInterval(timerInterval);
+        animateWave(false);
+        setStatus('Finalizing...', 'processing');
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
+        document.getElementById('stopBtn').disabled  = true;
+        document.getElementById('pauseLabel').textContent = 'Pause';
+    }
+
+    async function finalizeRecording() {
+        audioBlob = new Blob(allChunks, { type: 'audio/webm' });
+        const audioURL = URL.createObjectURL(audioBlob);
+        document.getElementById('audioPlayback').src = audioURL;
+        document.getElementById('audioPlayer').classList.add('visible');
+
+        // Show summary skeleton while we get the full-pass summary
+        document.getElementById('summary').innerHTML = '<div class="skeleton"></div><div class="skeleton"></div>';
+
+        const fd = new FormData();
+        fd.append('audio', audioBlob);
+        try {
+            const res  = await fetch('http://localhost:5000/upload', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.status === 'COMPLETED') {
+                setStatus('Completed', 'completed');
+                // Use full-pass transcript (more accurate) to overwrite live one
+                document.getElementById('transcript').textContent = data.transcript;
+                liveTranscript = data.transcript;
+                document.getElementById('translateBtn').disabled = false;
+                document.getElementById('translatedBox').style.display = 'none';
+                document.getElementById('copyTranslatedBtn').style.display = 'none';
+                if (data.language) {
+                    const langMap = { ta: 'Tamil', en: 'English' };
+                    document.getElementById('langTag').textContent =
+                        langMap[data.language] || data.language.toUpperCase();
+                }
+                renderMedicalInfo(data.medical_info);
+                document.getElementById('actionBar').style.display = 'flex';
+                if (navigator.share) document.getElementById('shareNativeBtn').style.display = 'inline-flex';
+            } else {
+                setStatus('Failed', '');
+                document.getElementById('summary').textContent = 'Summary unavailable.';
+            }
+        } catch(e) {
+            setStatus('Completed', 'completed');
+            document.getElementById('summary').textContent = 'Could not generate summary (server error).';
+        }
+    }
+
+    function renderMedicalInfo(info) {
+        if (!info) { document.getElementById('summary').textContent = 'No summary available.'; return; }
+        let html = '';
+        if (info.overview)    html += `<b>Overview:</b> ${info.overview}\n\n`;
+        if (info.symptoms?.length)    html += `<b>Symptoms:</b>\n• ${info.symptoms.join('\n• ')}\n\n`;
+        if (info.medications?.length) html += `<b>Medications:</b>\n• ${info.medications.join('\n• ')}\n\n`;
+        if (info.diagnosis?.length)   html += `<b>Diagnosis:</b>\n• ${info.diagnosis.join('\n• ')}\n\n`;
+        if (info.followup?.length)    html += `<b>Follow-up:</b>\n• ${info.followup.join('\n• ')}`;
+        document.getElementById('summary').innerHTML = html || 'No structured info found.';
+    }
+
+    async function translateTranscript() {
+        const text = document.getElementById('transcript').textContent.trim();
+        const targetLang = document.getElementById('targetLang').value;
+        const btn = document.getElementById('translateBtn');
+        const box = document.getElementById('translatedBox');
+        const copyBtn = document.getElementById('copyTranslatedBtn');
+        if (!text) return;
+        btn.disabled = true;
+        btn.textContent = 'Translating...';
+        box.style.display = 'none';
+        try {
+            const res = await fetch('http://localhost:5000/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, target_lang: targetLang })
+            });
+            const data = await res.json();
+            if (data.translated) {
+                box.textContent = data.translated;
+                box.style.display = 'block';
+                copyBtn.style.display = 'inline-block';
+            } else {
+                box.textContent = 'Translation failed.';
+                box.style.display = 'block';
+            }
+        } catch(e) {
+            box.textContent = 'Translation error. Check server.';
+            box.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Translate';
+        }
+    }
+
+    function newRecording() {
+        document.getElementById('resultSection').classList.remove('visible');
+        document.getElementById('audioPlayer').classList.remove('visible');
+        document.getElementById('timer').textContent = '00:00';
+        document.getElementById('translateBtn').disabled = true;
+        document.getElementById('translatedBox').style.display = 'none';
+        document.getElementById('copyTranslatedBtn').style.display = 'none';
+        document.getElementById('actionBar').style.display = 'none';
+        liveTranscript = '';
+        setStatus('Ready to record', '');
+        animateWave(false);
+    }
+
+    function downloadAudio() {
+        if (!audioBlob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(audioBlob);
+        a.download = `kyros-recording-${Date.now()}.webm`;
+        a.click();
+    }
+
+    function downloadText() {
+        const transcript = document.getElementById('transcript').textContent.trim();
+        const summary = document.getElementById('summary').innerText.trim();
+        const content = `KYROS MEDICAL TRANSCRIPT\n${'='.repeat(40)}\n\nTRANSCRIPT:\n${transcript}\n\nMEDICAL SUMMARY:\n${summary}`;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+        a.download = `kyros-transcript-${Date.now()}.txt`;
+        a.click();
+    }
+
+    function shareWhatsApp() {
+        const transcript = document.getElementById('transcript').textContent.trim();
+        const summary = document.getElementById('summary').innerText.trim();
+        const text = encodeURIComponent(`*Kyros Medical Transcript*\n\n*Transcript:*\n${transcript}\n\n*Summary:*\n${summary}`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+
+    function shareEmail() {
+        const transcript = document.getElementById('transcript').textContent.trim();
+        const summary = document.getElementById('summary').innerText.trim();
+        const subject = encodeURIComponent('Kyros Medical Transcript');
+        const body = encodeURIComponent(`Transcript:\n${transcript}\n\nMedical Summary:\n${summary}`);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    }
+
+    async function shareNative() {
+        const transcript = document.getElementById('transcript').textContent.trim();
+        const summary = document.getElementById('summary').innerText.trim();
+        try {
+            await navigator.share({
+                title: 'Kyros Medical Transcript',
+                text: `Transcript:\n${transcript}\n\nSummary:\n${summary}`
+            });
+        } catch(e) { console.warn('Share cancelled', e); }
+    }
+
+    function copyText(id, btn) {
+        const text = document.getElementById(id).textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            btn.textContent = '✓ Copied';
+            btn.classList.add('copied');
+            setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+        });
+    }
+</script>
+</body>
+</html>

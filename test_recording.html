@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recording Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; cursor: pointer; }
+        .start { background: #27ae60; color: white; border: none; }
+        .stop { background: #e74c3c; color: white; border: none; }
+        .info { background: #ecf0f1; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .success { color: #27ae60; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        #visualizer { width: 100%; height: 100px; background: #2c3e50; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Recording Diagnostic Test</h1>
+    
+    <div class="info">
+        <h3>Important Notes:</h3>
+        <ul>
+            <li><strong>This records from your MICROPHONE only</strong></li>
+            <li>Browsers cannot capture system audio or external speakers for security reasons</li>
+            <li>For doctor-patient conversations: Use a microphone placed between both people</li>
+            <li>Or use a conference microphone that picks up room audio</li>
+            <li>Make sure your microphone is not muted</li>
+            <li>Speak clearly and close to the microphone</li>
+        </ul>
+    </div>
+
+    <div class="info">
+        <h3>Test Steps:</h3>
+        <ol>
+            <li>Click "Start Recording"</li>
+            <li>Allow microphone access when prompted</li>
+            <li>Speak clearly INTO YOUR MICROPHONE for 5-10 seconds</li>
+            <li>Watch the audio visualizer (should show waves)</li>
+            <li>Click "Stop Recording"</li>
+            <li>Check the results below</li>
+        </ol>
+    </div>
+
+    <button class="start" onclick="startTest()">Start Recording</button>
+    <button class="stop" onclick="stopTest()" disabled id="stopBtn">Stop Recording</button>
+
+    <canvas id="visualizer"></canvas>
+
+    <div class="info" id="results">
+        <h3>Results:</h3>
+        <p id="status">Waiting to start...</p>
+        <p id="micStatus"></p>
+        <p id="streamStatus"></p>
+        <p id="recorderStatus"></p>
+        <p id="dataStatus"></p>
+        <p id="blobStatus"></p>
+        <p id="playbackStatus"></p>
+    </div>
+
+    <audio id="playback" controls style="width: 100%; margin-top: 20px; display: none;"></audio>
+
+    <script>
+        let mediaRecorder, audioChunks = [], stream, audioContext, analyser, dataArray, canvas, canvasContext;
+
+        async function startTest() {
+            audioChunks = [];
+            document.getElementById('status').innerHTML = '<span class="success">Starting test...</span>';
+            document.getElementById('stopBtn').disabled = false;
+
+            try {
+                // Request microphone access with specific constraints
+                const constraints = {
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        sampleRate: 48000
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                document.getElementById('micStatus').innerHTML = '<span class="success">✓ Microphone access granted</span>';
+                document.getElementById('streamStatus').innerHTML = '<span class="success">✓ Audio stream active</span>';
+
+                // Setup visualizer
+                setupVisualizer(stream);
+
+                // Create MediaRecorder with specific options
+                const options = {
+                    mimeType: 'audio/webm;codecs=opus',
+                    audioBitsPerSecond: 128000
+                };
+                
+                mediaRecorder = new MediaRecorder(stream, options);
+                document.getElementById('recorderStatus').innerHTML = `<span class="success">✓ MediaRecorder created (${mediaRecorder.mimeType})</span>`;
+
+                // Collect audio data
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        console.log('Data chunk received:', event.data.size, 'bytes');
+                    }
+                };
+
+                mediaRecorder.onstop = handleStop;
+
+                // Start recording with timeslice for continuous data
+                mediaRecorder.start(1000); // Capture data every 1 second
+                document.getElementById('status').innerHTML = '<span class="success">Recording... Speak into your MICROPHONE now!</span>';
+
+            } catch (error) {
+                document.getElementById('status').innerHTML = `<span class="error">✗ Error: ${error.message}</span>`;
+                document.getElementById('micStatus').innerHTML = '<span class="error">✗ Microphone access denied or not available</span>';
+                console.error('Error:', error);
+            }
+        }
+
+        function setupVisualizer(stream) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            analyser.fftSize = 2048;
+            
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
+            canvas = document.getElementById('visualizer');
+            canvasContext = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            drawVisualizer();
+        }
+
+        function drawVisualizer() {
+            if (!analyser) return;
+            
+            requestAnimationFrame(drawVisualizer);
+            
+            analyser.getByteTimeDomainData(dataArray);
+            
+            canvasContext.fillStyle = '#2c3e50';
+            canvasContext.fillRect(0, 0, canvas.width, canvas.height);
+            
+            canvasContext.lineWidth = 2;
+            canvasContext.strokeStyle = '#27ae60';
+            canvasContext.beginPath();
+            
+            const sliceWidth = canvas.width / dataArray.length;
+            let x = 0;
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                const v = dataArray[i] / 128.0;
+                const y = v * canvas.height / 2;
+                
+                if (i === 0) {
+                    canvasContext.moveTo(x, y);
+                } else {
+                    canvasContext.lineTo(x, y);
+                }
+                
+                x += sliceWidth;
+            }
+            
+            canvasContext.lineTo(canvas.width, canvas.height / 2);
+            canvasContext.stroke();
+        }
+
+        function stopTest() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                stream.getTracks().forEach(track => track.stop());
+                document.getElementById('status').innerHTML = '<span class="success">Processing...</span>';
+                document.getElementById('stopBtn').disabled = true;
+            }
+        }
+
+        function handleStop() {
+            console.log('Recording stopped. Chunks:', audioChunks.length);
+            
+            if (audioChunks.length === 0) {
+                document.getElementById('dataStatus').innerHTML = '<span class="error">✗ No audio data captured!</span>';
+                return;
+            }
+
+            document.getElementById('dataStatus').innerHTML = `<span class="success">✓ Captured ${audioChunks.length} audio chunks</span>`;
+
+            // Create blob
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const blobSize = audioBlob.size;
+            
+            if (blobSize < 1000) {
+                document.getElementById('blobStatus').innerHTML = `<span class="error">✗ Audio blob too small: ${blobSize} bytes (should be > 1KB)</span>`;
+            } else {
+                document.getElementById('blobStatus').innerHTML = `<span class="success">✓ Audio blob created: ${(blobSize / 1024).toFixed(2)} KB</span>`;
+            }
+
+            // Test playback
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioElement = document.getElementById('playback');
+            audioElement.src = audioUrl;
+            audioElement.style.display = 'block';
+            document.getElementById('playbackStatus').innerHTML = '<span class="success">✓ Audio ready for playback (use player below)</span>';
+
+            document.getElementById('status').innerHTML = '<span class="success">Test Complete! Check results above.</span>';
+        }
+    </script>
+</body>
+</html>
