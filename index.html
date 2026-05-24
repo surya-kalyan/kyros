@@ -549,7 +549,7 @@
         fd.append('prev_text', liveTranscript.slice(-300));
 
         try {
-            const res  = await fetch('http://localhost:5000/transcribe_chunk', { method: 'POST', body: fd });
+            const res  = await fetch('/transcribe_chunk', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.text) {
                 liveTranscript += (liveTranscript ? ' ' : '') + data.text;
